@@ -10,7 +10,8 @@ Starter platform for sponsor-funded tasks, affiliate commissions and referral op
 - Rate limiting, Helmet security headers, parameterized SQL
 - Funded task listing and task submission review
 - Wallet ledger, referral codes, withdrawal requests
-- Admin-only API endpoints to create tasks, approve submissions and review withdrawals
+- Admin dashboard at `/admin.html` for user management, task management, submission approvals/rejections and withdrawal review
+- Admin-only API endpoints protected by BOTH a database `admin_enabled` flag and the `ADMIN_EMAILS` allow-list
 
 ## Important limits
 This is a starter, not a promise of income. It does NOT connect to MTN MoMo, Airtel Money, banks, survey providers, ad networks or affiliate networks. Withdrawal requests are stored for manual review; the operator must complete a payment separately before marking it paid. No task is available until an admin activates it as funded. Do not advertise or pay rewards unless a real sponsor has committed funds. Never charge users to unlock tasks or promise returns on deposits. Never collect PINs, passwords or OTPs.
@@ -42,4 +43,15 @@ Requirements: Node.js 20+ and PostgreSQL.
 - `POST /api/admin/withdrawals/:id/paid` only after completing external payment
 - `POST /api/admin/withdrawals/:id/reject`
 
-These are API endpoints, not a finished admin dashboard. Build an audited admin interface before production. Automatic Mobile Money/bank payouts require official provider merchant accounts, server-side API integration, verified webhooks, idempotency and reconciliation. Keep provider secrets only in server environment variables.
+## Admin dashboard setup
+1. Deploy the updated project and let the app run once so database migrations add `admin_enabled` to the users table.
+2. Register your own account on the public GX Earn website.
+3. In your Neon dashboard, open SQL Editor and run this statement with your own registered email (replace the example):
+   `UPDATE users SET admin_enabled = TRUE WHERE email = 'you@example.com';`
+4. In Render Environment, set `ADMIN_EMAILS` to exactly the same email (or comma-separated emails for multiple trusted admins), then redeploy.
+5. Visit `https://YOUR-SERVICE.onrender.com/admin.html` and sign in with that account.
+6. Keep this email inbox and account password secure. Never share admin credentials. Do not enable admin access for an account you do not control.
+
+The dashboard supports searching users, suspending/restoring accounts, creating and activating/deactivating tasks, marking verified task funding, approving/rejecting submissions, and reviewing/marking/rejecting withdrawal requests. Admin access requires both the database flag and allow-list membership. A regular account cannot grant itself admin privileges.
+
+Mark a withdrawal paid only after sending the funds through the official payment provider and confirming success. This starter does not automate transfers. For a production payment integration, add provider authentication, signed webhook verification, idempotency and reconciliation. Before public launch, arrange security review, backups, audit logging, privacy/terms and compliance appropriate to Uganda. Automatic Mobile Money/bank payouts require official provider merchant accounts, server-side API integration, verified webhooks, idempotency and reconciliation. Keep provider secrets only in server environment variables.
