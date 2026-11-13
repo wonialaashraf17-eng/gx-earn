@@ -7,7 +7,6 @@ const limiter=rateLimit({windowMs:900000,limit:15});const clean=x=>String(x??"")
 function cookie(res,u){res.cookie("gx_session",jwt.sign({sub:String(u.id)},SECRET,{expiresIn:"7d"}),{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"strict",maxAge:604800000,path:"/"});}
 async function auth(req,res,next){try{const d=jwt.verify(req.cookies.gx_session,SECRET),q=await pool.query("SELECT id,name,email,referral_code,is_active,admin_enabled FROM users WHERE id=$1",[d.sub]);if(!q.rowCount||!q.rows[0].is_active)return res.status(401).json({error:"Account unavailable. Contact support."});req.user=q.rows[0];next()}catch{return res.status(401).json({error:"Please sign in again"})}}
 function admin(req,res,next){if(!req.user.admin_enabled||!admins.has(req.user.email.toLowerCase()))return res.status(403).json({error:"Admin access has not been enabled for this account"});next()}
-console.log("ADMIN CHECK", {
   adminEnabled: Boolean(req.user?.admin_enabled),
   emailAllowed: admins.has(
     String(req.user?.email || "").trim().toLowerCase()
