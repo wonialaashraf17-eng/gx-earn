@@ -6,6 +6,12 @@ app.set("trust proxy",1);app.use(helmet());app.use(express.json({limit:"20kb"}))
 const limiter=rateLimit({windowMs:900000,limit:15});const clean=x=>String(x??"").trim();
 function cookie(res,u){res.cookie("gx_session",jwt.sign({sub:String(u.id)},SECRET,{expiresIn:"7d"}),{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"strict",maxAge:604800000,path:"/"});}
 async function auth(req,res,next){try{const d=jwt.verify(req.cookies.gx_session,SECRET),q=await pool.query("SELECT id,name,email,referral_code,is_active,admin_enabled FROM users WHERE id=$1",[d.sub]);if(!q.rowCount||!q.rows[0].is_active)return res.status(401).json({error:"Account unavailable. Contact support."});req.user=q.rows[0];next()}catch{return res.status(401).json({error:"Please sign in again"})}}
+const admins = new Set(
+  (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map(x => x.trim().toLowerCase())
+    .filter(Boolean)
+);
 function admin(req,res,next){if(!req.user.admin_enabled||!admins.has(req.user.email.toLowerCase()))return res.status(403).json({error:"Admin access has not been enabled for this account"});next()}
 app.get("/api/health",(_,res)=>res.json({ok:true,service:"GX Earn API"}));
 app.post("/api/auth/register",limiter,async(req,res)=>{try{let name=clean(req.body.name),email=clean(req.body.email).toLowerCase(),pw=String(req.body.password||""),ref=clean(req.body.referralCode).toUpperCase();if(name.length<2||name.length>70||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||pw.length<10||pw.length>72)return res.status(400).json({error:"Enter a valid name/email and a 10–72 character password"});let by=null;if(ref){let x=await pool.query("SELECT id FROM users WHERE referral_code=$1",[ref]);if(!x.rowCount)return res.status(400).json({error:"Referral code not found"});by=x.rows[0].id}let code="GX"+Math.random().toString(36).slice(2,8).toUpperCase(),hash=await bcrypt.hash(pw,12),q=await pool.query("INSERT INTO users(name,email,password_hash,referral_code,referred_by) VALUES($1,$2,$3,$4,$5) RETURNING id,name,email,referral_code",[name,email,hash,code,by]);cookie(res,q.rows[0]);res.status(201).json({user:q.rows[0]})}catch(e){res.status(e.code==="23505"?409:500).json({error:e.code==="23505"?"Email already registered":"Could not register"})}});
